@@ -2,7 +2,11 @@
 
 Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимизациями CachyOS.
 
-**Цель:** Минимальная задержка планировщика (`PREEMPT`) + агрессивные настройки для десктопа (BBR3, HZ_1000, O3).
+**Цель:** Минимальная задержка планировщика (`sched/flat` + `PREEMPT_LAZY`) + агрессивные настройки для десктопа (BBR3, HZ_1000, O3, x86-64-v2).
+
+Основан на CachyOS Kernel, но с дополнительными оптимизациями под Intel Xeon E31270.
+
+[Сравнение с оригинальным CachyOS →](COMPARISON.md)
 
 ---
 
@@ -69,9 +73,32 @@ sudo pacman -U linux-flatten-*.pkg.tar.zst
 
 ---
 
+## Сравнение с оригинальным CachyOS
+
+Этот проект основан на [CachyOS Kernel](https://github.com/CachyOS/linux-cachyos), но использует **sched/flat** патч Peter Zijlstra вместо стандартного EEVDF + BORE планировщика CachyOS.
+
+Ключевые отличия от CachyOS:
+
+| Что | CachyOS | linux-flatten |
+|-----|---------|---------------|
+| Планировщик | EEVDF + BORE | sched/flat (flattened runqueue) |
+| PREEMPT | full (PREEMPT) | PREEMPT_LAZY |
+| CPU tuning | GENERIC (x86-64-v1) | Native + x86-64-v2 |
+| NUMA | Включён | Отключён (single socket) |
+| PCIe ASPM | DEFAULT | PERFORMANCE |
+| THP | ALWAYS | MADVISE |
+| NR_CPUS | 8192 | 8 |
+| Debug info | DWARF5 несжатый | DWARF5 + ZSTD сжатие |
+| LSMs | Все (10) | Отключены 5 лишних |
+| Модульная подпись | SHA512 | SHA256 |
+
+Подробнее: [`COMPARISON.md`](COMPARISON.md) и [`CACHYOS_ORIGINAL_ANALYSIS.md`](CACHYOS_ORIGINAL_ANALYSIS.md)
+
+---
+
 ## Оптимизация под оборудование
 
-Проект включает два файла с анализом и предложениями:
+Проект включает файлы с анализом и предложениями:
 
 | Файл | Описание |
 |------|----------|

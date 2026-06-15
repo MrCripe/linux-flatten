@@ -3,10 +3,13 @@
 > **Дата:** 2026-06-15
 > **Оборудование:** Intel Xeon E31270 (Sandy Bridge) + AMD Radeon RX 580
 > **Исходный конфиг:** CachyOS (CONFIG_CACHY=y)
+> **Сравнение с CachyOS:** См. [COMPARISON.md](COMPARISON.md)
 
 ---
 
-## 1. CPU: x86-64-v2 + Native Tuning
+## 1. CPU: x86-64-v2 + Native Tuning (отличие от CachyOS)
+
+CachyOS использует `GENERIC_CPU=y` + `X86_64_VERSION=1` (x86-64 baseline).
 
 | Параметр | Было | Стало |
 |----------|------|--------|
@@ -168,6 +171,30 @@
 | ✅ Безопасные | 8 применено | +3-5% CPU, -1ms GPU, стабильность |
 | ⚠️ Рекомендуемые | 5 применено | +2-5% throughput, stable latency |
 | **Всего** | **13** | **+5-10% к производительности** |
+
+## Сравнение с CachyOS
+
+Большинство наших оптимизаций отличаются от стандартных настроек CachyOS:
+
+| Оптимизация | Наша настройка | CachyOS | Статус |
+|------------|---------------|---------|--------|
+| CPU tuning | Native + x86-64-v2 | GENERIC + v1 | **Улучшение** |
+| NUMA | OFF | ON | **Улучшение** (single socket) |
+| PCIe ASPM | PERFORMANCE | DEFAULT | **Улучшение** |
+| DEBUG_INFO | ZSTD сжатие | Без сжатия | **Улучшение** |
+| EFI_MIXED | OFF | ON | **Улучшение** (64-bit only) |
+| Module sig | SHA256 | SHA512 | **Улучшение** (без SHA-NI) |
+| LSMs | 5 отключено | Все 10 активны | **Упорядочение** |
+| NR_CPUS | 8 | 8192 | **Улучшение** |
+| PREEMPT | LAZY | FULL | **Изменение** (компромисс) |
+| THP | MADVISE | ALWAYS | **Изменение** (стабильность) |
+| BBR3 | Module (m) | Module (m) | Одинаково |
+| ZSWAP | ZSTD | ZSTD | Одинаково |
+| Module compr | ZSTD | ZSTD | Одинаково |
+| HZ | 1000 | 1000 | Одинаково |
+
+Полное сравнение: [COMPARISON.md](COMPARISON.md)
+Анализ оригинала: [CACHYOS_ORIGINAL_ANALYSIS.md](CACHYOS_ORIGINAL_ANALYSIS.md)
 
 ---
 

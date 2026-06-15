@@ -1,0 +1,17 @@
+# Build artifacts
+pkg/
+src/
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.log
+
+# Temporary files
+.config
+.config.orig
+*.bak
+*.backup
+
+# Editor files
+*.swp
+*.swo
+*~

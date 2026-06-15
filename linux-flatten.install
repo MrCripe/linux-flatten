@@ -1,0 +1,84 @@
+post_install() {
+    add_limine_entry
+    generate_initramfs
+}
+
+post_upgrade() {
+    add_limine_entry
+    generate_initramfs
+}
+
+pre_remove() {
+    remove_limine_entry
+}
+
+post_remove() {
+    # Cleanup is done in pre_remove
+    :
+}
+
+add_limine_entry() {
+    local limine_cfg="/boot/limine/limine.conf"
+    local backup_cfg="${limine_cfg}.bak.$(date +%s)"
+
+    [ -f "$limine_cfg" ] || { echo "Limine config not found at $limine_cfg. Skipping."; return; }
+
+    if grep -q "^:Linux Flatten" "$limine_cfg"; then
+        echo "Limine entry for Linux Flatten already exists. Skipping."
+        return
+    fi
+
+    local root_uuid
+    root_uuid=$(findmnt -n -o UUID / 2>/dev/null)
+    [ -z "$root_uuid" ] && { echo "Cannot determine root UUID. Skipping."; return; }
+
+    local cmdline
+    cmdline=$(cat /proc/cmdline 2>/dev/null | sed 's/BOOT_IMAGE=[^ ]* //')
+
+    # Backup original config
+    cp "$limine_cfg" "$backup_cfg"
+    echo "Backed up limine config to $backup_cfg"
+
+    cat >> "$limine_cfg" <<LIMINE
+
+# --- Added by linux-flatten package (automatically) ---
+:Linux Flatten
+    PROTOCOL=linux
+    KERNEL_PATH=boot:///vmlinuz-linux-flatten
+    MODULE_PATH=boot:///initramfs-linux-flatten.img
+    KERNEL_CMDLINE="root=UUID=$root_uuid $cmdline add_efi_memmap"
+# ------------------------------------------------------
+LIMINE
+    echo "Limine entry added. Reboot to see the new option."
+}
+
+remove_limine_entry() {
+    local limine_cfg="/boot/limine/limine.conf"
+    local backup_cfg="${limine_cfg}.bak.$(date +%s)"
+
+    [ -f "$limine_cfg" ] || return
+
+    if ! grep -q "^# --- Added by linux-flatten package" "$limine_cfg"; then
+        echo "No linux-flatten entry found in limine config."
+        return
+    fi
+
+    # Backup before modification
+    cp "$limine_cfg" "$backup_cfg"
+    echo "Backed up limine config to $backup_cfg"
+
+    sed -i '/^# --- Added by linux-flatten package (automatically) ---/,/^# ------------------------------------------------------/d' "$limine_cfg"
+    echo "Removed linux-flatten entry from Limine config."
+}
+
+generate_initramfs() {
+    local preset_file="/etc/mkinitcpio.d/linux-flatten.preset"
+
+    if [ -f "$preset_file" ]; then
+        # Use mkinitcpio without deprecated -p flag
+        mkinitcpio -p linux-flatten 2>/dev/null || mkinitcpio --preset linux-flatten
+        echo "Initramfs generated for linux-flatten"
+    else
+        echo "Warning: mkinitcpio preset not found at $preset_file, initramfs may be missing."
+    fi
+}

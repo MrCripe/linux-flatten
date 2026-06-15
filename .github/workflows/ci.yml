@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Sy --noconfirm base-devel git namcap shellcheck
+
+      - name: Check PKGBUILD with namcap
+        run: namcap PKGBUILD
+
+      - name: Check install script with shellcheck
+        run: shellcheck linux-flatten.install
+
+      - name: Validate PKGBUILD syntax
+        run: bash -n PKGBUILD
+
+      - name: Validate install script syntax
+        run: bash -n linux-flatten.install
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils
+
+      - name: Build package
+        run: |
+          useradd -m builder
+          chown -R builder:builder .
+          sudo -u builder makepkg -sf --noconfirm
+
+      - name: Verify package
+        run: |
+          pacman -Qip *.pkg.tar.zst
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-flatten-package
+          path: "*.pkg.tar.zst"
+          retention-days: 7
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: .
+          version: latest

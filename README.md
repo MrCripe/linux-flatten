@@ -1,8 +1,10 @@
 # linux-flatten
 
-Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимизациями CachyOS.
-
 сделано с помощью DeepSeek V4 fast. могут быть неточности рассхождения и тд. приношу свои извинения(
+
+
+
+Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимизациями CachyOS.
 
 **Цель:** Минимальная задержка планировщика (`sched/flat` + `PREEMPT_LAZY`) + агрессивные настройки для десктопа (BBR3, HZ_1000, O3, x86-64-v2).
 

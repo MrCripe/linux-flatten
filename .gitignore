@@ -15,3 +15,11 @@ src/
 *.swp
 *.swo
 *~
+
+# Build artifacts
+pkg/
+src/
+*.pkg.tar.*
+*.part
+.config
+.config.old

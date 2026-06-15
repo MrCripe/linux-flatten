@@ -271,9 +271,50 @@ ls -la /boot/initramfs-linux-flatten.img
 ## Устранение проблем
 
 ### "mkinitcpio preset not found"
+Начиная с версии install-скрипта, пресет создаётся автоматически. Если возникла проблема:
+
 ```bash
+# Вручную создать пресет
+sudo mkdir -p /etc/mkinitcpio.d
+cat | sudo tee /etc/mkinitcpio.d/linux-flatten.preset <<EOF
+ALL_kver="/boot/vmlinuz-linux-flatten"
+ALL_config="/etc/mkinitcpio.conf"
+default_image="/boot/initramfs-linux-flatten.img"
+EOF
+
+# Собрать initramfs
 sudo mkinitcpio -p linux-flatten
 ```
+
+### "Limine entry missing" или нет записи для linux-flatten
+Если скрипт `.install` не добавил запись в `/boot/limine.conf`:
+
+```bash
+# 1. Определить root UUID
+ROOT_UUID=$(findmnt -n -o UUID /)
+CMDLINE=$(cat /proc/cmdline | sed 's/BOOT_IMAGE=[^ ]* //')
+
+# 2. Добавить запись с параметром pcie_aspm=performance
+sudo bash -c 'cat >> /boot/limine/limine.conf <<LIMINE
+
+:Linux Flatten
+    PROTOCOL=linux
+    KERNEL_PATH=boot:///vmlinuz-linux-flatten
+    MODULE_PATH=boot:///initramfs-linux-flatten.img
+    KERNEL_CMDLINE="root=UUID='$ROOT_UUID' '$CMDLINE' add_efi_memmap pcie_aspm=performance"
+LIMINE'
+```
+
+### PCIe ASPM не в режиме performance
+Проверить текущий режим:
+```bash
+cat /sys/module/pcie_aspm/parameters/policy
+```
+Ожидается: `[performance] default powersave powersupersave`
+
+Если `[default]` активен — параметр ядра `pcie_aspm=performance` не был передан загрузчиком. Добавьте его в `KERNEL_CMDLINE` строку для linux-flatten в `/boot/limine/limine.conf`.
+
+Скрипт `.install` теперь добавляет этот параметр автоматически при установке/обновлении пакета.
 
 ### "Limine config not found"
 ```bash

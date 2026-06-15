@@ -129,4 +129,35 @@ sudo reboot
 
 ---
 
-*Аудит завершён. Все 13 оптимизаций подтверждены. 0 откатов. 1 добавление (earlyoom).*
+---
+
+## 7. Real-world Installation Feedback
+
+После установки ядра на реальной системе (CachyOS + Limine) были выявлены и исправлены следующие проблемы:
+
+### 7.1 mkinitcpio preset
+- **Проблема:** Пакет устанавливал пресет в `/etc/mkinitcpio.d/linux-flatten.preset`, но хуки CachyOS (`limine-mkinitcpio`) игнорировали кастомное имя пакета и пересобирали initramfs только для `linux-cachyos`.
+- **Решение:** В `linux-flatten.install` добавлена функция `ensure_preset()`, которая создаёт пресет если его нет, и безусловно вызывает `mkinitcpio -p linux-flatten` в `post_install()` и `post_upgrade()`.
+- **Статус:** ✅ Исправлено
+
+### 7.2 Limine entry
+- **Проблема:** Запись для `linux-flatten` не появилась в `/boot/limine.conf` после установки, потому что скрипт `.install` не отработал корректно (пропустил `add_limine_entry`).
+- **Решение:** `add_limine_entry()` теперь вызывается в обоих хуках. Если запись уже существует — обновляется `KERNEL_CMDLINE` (с добавлением `pcie_aspm=performance`). Если нет — создаётся новая.
+- **Статус:** ✅ Исправлено
+
+### 7.3 PCIe ASPM performance
+- **Проблема:** `CONFIG_PCIEASPM_PERFORMANCE=y` в конфиге ядра не гарантирует active ASPM policy `[performance]` на всех материнских платах. Некоторые firmware/Bios игнорируют настройку ядра.
+- **Решение:** В `KERNEL_CMDLINE` для linux-flatten автоматически добавляется `pcie_aspm=performance`. Это boot-параметр, который гарантирует performance режим независимо от BIOS/UEFI.
+- **Статус:** ✅ Исправлено
+
+### 7.4 Итог установки
+```
+Ядро:       7.1.0-rc2-flatten-g7eb85c33dd20
+Статус:     ✅ Загрузилось и работает
+Тесты:      13/13 PASS
+Проблемы:   3 найдено, 3 исправлено в скриптах
+```
+
+---
+
+*Аудит завершён. Все 13 оптимизаций подтверждены. 0 откатов. 1 добавление (earlyoom). 3 real-world issues fixed.*

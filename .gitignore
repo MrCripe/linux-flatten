@@ -8,8 +8,8 @@ src/
 # Temporary files
 .config
 .config.orig
-*.bak
-*.backup
+*.bak*
+*.backup*
 
 # Editor files
 *.swp

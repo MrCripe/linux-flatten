@@ -1,27 +1,173 @@
-name: Makefile CI
+name: Build & Release Kernel
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
 
     steps:
-    - uses: actions/checkout@v4
-
-    - name: configure
-      run: ./configure
-
     - name: Install dependencies
-      run: make
+      run: |
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python
 
-    - name: Run check
-      run: make check
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Run distcheck
-      run: make distcheck
+    - name: Prepare kernel config
+      run: |
+        set -e
+        zcat config.gz > config.orig
+
+        # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
+
+        # Compiler: -O3 (максимальная оптимизация)
+        scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
+        scripts/config -e CC_OPTIMIZE_FOR_PERFORMANCE_O3
+
+        # Частота таймера: 1000 Hz (минимальная задержка)
+        scripts/config -d HZ_300
+        scripts/config -e HZ_1000
+        scripts/config --set-val HZ 1000
+
+        # Preempt Lazy (sched/flat требует)
+        scripts/config -e PREEMPT_LAZY
+        scripts/config -d PREEMPT
+
+        # BBR3 TCP congestion control
+        scripts/config -m TCP_CONG_BBR3
+
+        # THP: MADVISE (безопаснее ALWAYS для десктопа)
+        scripts/config -e TRANSPARENT_HUGEPAGE_MADVISE
+        scripts/config -d TRANSPARENT_HUGEPAGE_ALWAYS
+
+        # Модули: ZSTD сжатие (быстрее XZ)
+        scripts/config -d MODULE_COMPRESS_XZ
+        scripts/config -e MODULE_COMPRESS_ZSTD
+
+        # Отключаем NUMA (не нужно для single/dual socket desktop)
+        scripts/config -d NUMA
+        scripts/config -d NUMA_BALANCING
+
+        # Отключаем debug info для размера
+        scripts/config -d DEBUG_INFO
+        scripts/config -d DEBUG_INFO_DWARF4
+        scripts/config -d DEBUG_INFO_DWARF5
+        scripts/config -e DEBUG_INFO_NONE
+
+        # Отключаем лишние LSM (ускорение загрузки)
+        scripts/config -d SECURITY_YAMA
+        scripts/config -d SECURITY_LANDLOCK
+        scripts/config -d SECURITY_SELINUX
+        scripts/config -d SECURITY_SMACK
+        scripts/config -d SECURITY_APPARMOR
+
+        # Отключаем ненужное для уменьшения размера и ускорения
+        scripts/config -d CONFIG_FTRACE
+        scripts/config -d CONFIG_KPROBES
+        scripts/config -d CONFIG_KGDB
+        scripts/config -d CONFIG_KEXEC
+        scripts/config -d CONFIG_CRASH_DUMP
+        scripts/config -d CONFIG_EFI_MIXED
+        scripts/config -d SCHED_CLASS_EXT
+
+        # Подпись модулей: SHA256 (быстрее SHA512)
+        scripts/config -d MODULE_SIG_SHA512
+        scripts/config -e MODULE_SIG_SHA256
+
+        # Применяем olddefconfig
+        make olddefconfig
+
+        # Добавляем localversion
+        scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
+
+    - name: Build kernel
+      run: |
+        make -j$(nproc) bzImage modules 2>&1 | tail -20
+
+    - name: Get kernel version
+      id: version
+      run: |
+        KERNEL_VERSION=$(make kernelrelease)
+        echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
+        echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+        echo "Building: $KERNEL_VERSION"
+
+    - name: Build package
+      run: |
+        set -e
+        make INSTALL_MOD_PATH=pkg/usr modules_install
+        install -Dm644 arch/x86/boot/bzImage pkg/boot/vmlinuz-linux-flatten
+        mkdir -p pkg/etc/mkinitcpio.d
+        printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > pkg/etc/mkinitcpio.d/linux-flatten.preset
+        install -Dm644 linux-flatten.install pkg/usr/share/libalpm/scripts/linux-flatten.install
+        echo "${{ steps.version.outputs.kernel_version }}" > pkg/usr/share/linux-flatten/kernelrelease
+
+    - name: Create tarball
+      run: |
+        cd pkg
+        tar -czf ../linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz .
+        cd ..
+        sha256sum linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz > linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz.sha256
+
+    - name: Create GitHub Release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.kernel_version }}
+        name: linux-flatten ${{ steps.version.outputs.kernel_version }}
+        body: |
+          ## linux-flatten ${{ steps.version.outputs.kernel_version }}
+
+          **Универсальное ядро** — совместимо со всеми x86-64 процессорами (Intel и AMD).
+
+          ### Оптимизации
+          - **sched/flat** — flattened runqueue от Peter Zijlstra
+          - **PREEMPT_LAZY** — минимальные задержки переключения
+          - **O3** — максимальная оптимизация компилятора
+          - **HZ=1000** — высокая частота таймера
+          - **BBR3** — современный TCP congestion control
+          - **THP MADVISE** — безопасные huge pages
+          - **ZSTD модули** — быстрая загрузка модулей
+          - **SHA256 подпись** — быстрая проверка модулей
+          - **Без debug info** — минимальный размер
+
+          ### Совместимость
+          - Работает на **любом** x86-64 процессоре (v1+)
+          - НЕ требует `-march=native`
+          - Подходит для Intel Core 2 и новее, AMD Athlon 64 и новее
+
+          ### Установка
+          ```bash
+          # Распаковать в систему
+          sudo tar -xzf linux-flatten-*-x86_64.tar.gz -C /
+
+          # Обновить initramfs
+          sudo mkinitcpio -p linux-flatten
+
+          # Обновить загрузчик (Limine)
+          sudo limine-scan /boot
+          ```
+
+          ### Проверка
+          ```bash
+          uname -r
+          cat /proc/version
+          ```
+        files: |
+          linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz
+          linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz.sha256
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

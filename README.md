@@ -1,21 +1,16 @@
 # linux-flatten
 
-сделано с помощью DeepSeek V4 fast. могут быть неточности рассхождения и тд. приношу свои извинения(
-
-
-
 Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимизациями CachyOS.
 
-**Цель:** Минимальная задержка планировщика (`sched/flat` + `PREEMPT_LAZY`) + агрессивные настройки для десктопа (BBR3, HZ_1000, O3, x86-64-v2).
+**Цель:** Минимальная задержка планировщика (`sched/flat` + `PREEMPT_LAZY`) + агрессивные настройки для десктопа (BBR3, HZ_1000, O3).
 
-Основан на CachyOS Kernel, но с дополнительными оптимизациями под Intel Xeon E31270.
-
-[Сравнение с оригинальным CachyOS →](COMPARISON.md)
+**Универсальное ядро** — совместимо со **всеми** x86-64 процессорами (Intel Core 2+, AMD Athlon 64+). Не требует `-march=native`, работает на любом x86-64 v1 и выше.
 
 ---
 
 ## Содержание
 
+- [Загрузка из релизов](#загрузка-из-релизов)
 - [Быстрая установка](#быстрая-установка)
 - [Сборка из исходников](#сборка-из-исходников)
 - [Оптимизация под оборудование](#оптимизация-под-оборудование)
@@ -25,6 +20,61 @@ Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимиза
 - [Тестирование](#тестирование)
 - [Откат](#откат)
 - [Устранение проблем](#устранение-проблем)
+
+---
+
+## Загрузка из релизов
+
+Готовые сборки ядра доступны на [GitHub Releases](https://github.com/${{GITHUB_REPOSITORY}}/releases).
+
+Каждый релиз создаётся автоматически при пуше в `main`. Имя тега = версии ядра (например `7.2.0.flatten`).
+
+### Скачивание через GitHub CLI
+```bash
+# Последний релиз
+gh release download --repo <owner>/linux-flatten --pattern "linux-flatten-*-x86_64.tar.gz"
+
+# Конкретная версия
+gh release download v7.2.0.flatten --repo <owner>/linux-flatten
+```
+
+### Скачивание вручную
+```bash
+# Замените VERSION на нужную версию
+VERSION="7.2.0.flatten"
+wget "https://github.com/${{GITHUB_REPOSITORY}}/releases/download/${VERSION}/linux-flatten-${VERSION}-x86_64.tar.gz"
+wget "https://github.com/${{GITHUB_REPOSITORY}}/releases/download/${VERSION}/linux-flatten-${VERSION}-x86_64.tar.gz.sha256"
+
+# Проверить целостность
+sha256sum -c linux-flatten-${VERSION}-x86_64.tar.gz.sha256
+```
+
+### Установка из релиза
+```bash
+# Распаковать в корень системы
+sudo tar -xzf linux-flatten-*-x86_64.tar.gz -C /
+
+# Обновить initramfs
+sudo mkinitcpio -p linux-flatten
+
+# Обновить загрузчик (Limine)
+sudo limine-scan /boot
+
+# Перезагрузиться
+sudo reboot
+```
+
+### Проверка после загрузки
+```bash
+uname -r
+# Вывод: 7.2.0-flatten
+
+cat /proc/version
+# Должен содержать "-flatten"
+
+# Проверить что ядро работает с нужными оптимизациями
+zcat /proc/config.gz | grep -E "PREEMPT_LAZY|HZ_1000|BBR3|O3"
+```
 
 ---
 
@@ -87,7 +137,7 @@ sudo pacman -U linux-flatten-*.pkg.tar.zst
 |-----|---------|---------------|
 | Планировщик | EEVDF + BORE | sched/flat (flattened runqueue) |
 | PREEMPT | full (PREEMPT) | PREEMPT_LAZY |
-| CPU tuning | GENERIC (x86-64-v1) | Native + x86-64-v2 |
+| CPU tuning | GENERIC (x86-64-v1) | x86-64 (generic, совместим со всеми) |
 | NUMA | Включён | Отключён (single socket) |
 | PCIe ASPM | DEFAULT | PERFORMANCE |
 | THP | ALWAYS | MADVISE |

@@ -1,0 +1,48 @@
+# Build artifacts
+pkg/
+src/
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+*.log
+config.gz
+config.gz.backup
+config.optimized
+
+# Kernel build artifacts
+vmlinux
+vmlinuz
+*.o
+*.o.d
+*.cmd
+*.mod
+*.mod.c
+*.symvers
+*.order
+.tmp_versions/
+include/config/
+include/generated/
+arch/x86/boot/bzImage
+arch/x86/boot/initramfs*
+
+# Generated docs (regenerated from CI)
+kernelrelease.txt
+
+# Analysis and audit reports (historical, not needed in repo)
+ANALYSIS.md
+APPLIED_OPTIMIZATIONS.md
+AUDIT_REPORT.md
+CACHYOS_ORIGINAL_ANALYSIS.md
+FINAL_AUDIT_REPORT.md
+SELF_AUDIT.md
+PROPOSED_OPTIMIZATIONS.md
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

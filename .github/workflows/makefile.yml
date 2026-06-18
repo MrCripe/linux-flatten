@@ -111,33 +111,51 @@ jobs:
         # Добавляем localversion
         scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
-    - name: Build kernel
+    - name: Build kernel and package
       timeout-minutes: 90
       run: |
+        set -e
         cd linux-flatten
-        make -j$(nproc) bzImage modules 2>&1 | tail -20
 
-    - name: Get kernel version
-      id: version
-      run: |
-        cd linux-flatten
+        # Собираем ядро и ВСЕ модули
+        make -j$(nproc) bzImage modules
+
+        # Проверяем что modules.order существует
+        if [ ! -f modules.order ]; then
+          echo "ERROR: modules.order not found!"
+          ls -la modules.order 2>&1 || true
+          exit 1
+        fi
+
+        echo "=== modules.order OK, $(wc -l < modules.order) modules ==="
+
+        # Получаем версию ядра
         KERNEL_VERSION=$(make kernelrelease)
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
         echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
         echo "Building: $KERNEL_VERSION"
 
-    - name: Build package
-      run: |
-        set -e
-        cd linux-flatten
+        # Устанавливаем модули и firmware в pkg/
         make INSTALL_MOD_PATH=../pkg/usr modules_install
         make INSTALL_FW_PATH=../pkg/usr/lib/firmware firmware_install
+
+        # Устанавливаем образ ядра
         install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
+
+        # Preset для mkinitcpio
         mkdir -p ../pkg/etc/mkinitcpio.d
-        mkdir -p ../pkg/usr/share/linux-flatten
         printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > ../pkg/etc/mkinitcpio.d/linux-flatten.preset
+
+        # Install script
         install -Dm644 ../linux-flatten.install ../pkg/usr/share/libalpm/scripts/linux-flatten.install
-        echo "${{ steps.version.outputs.kernel_version }}" > ../pkg/usr/share/linux-flatten/kernelrelease
+
+        # Kernel version file
+        echo "$KERNEL_VERSION" > ../pkg/usr/share/linux-flatten/kernelrelease
+
+        echo "=== Package ready ==="
+        ls -lh ../pkg/boot/vmlinuz-linux-flatten
+        du -sh ../pkg/usr/lib/modules
+        du -sh ../pkg/usr/lib/firmware
 
     - name: Create tarball
       run: |

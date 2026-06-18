@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     container:
       image: archlinux:latest
 
@@ -38,7 +39,14 @@ jobs:
       run: |
         set -e
         cd linux-flatten
+
+        # Начинаем с x86_64_defconfig как базы
         make x86_64_defconfig
+
+        # Включаем ВСЁ как модуль (кроме ядра) — полный набор драйверов
+        # allyesconfig = all + y, allmodconfig = all + m — последний лучше
+        # т.к. core ядро остаётся built-in для совместимости, а всё остальное = модули
+        make allmodconfig
 
         # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
 
@@ -56,6 +64,7 @@ jobs:
         scripts/config -d PREEMPT
 
         # BBR3 TCP congestion control
+        scripts/config -m TCP_CONG_BBR2
         scripts/config -m TCP_CONG_BBR3
 
         # THP: MADVISE (безопаснее ALWAYS для десктопа)
@@ -103,6 +112,7 @@ jobs:
         scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
     - name: Build kernel
+      timeout-minutes: 90
       run: |
         cd linux-flatten
         make -j$(nproc) bzImage modules 2>&1 | tail -20
@@ -121,6 +131,7 @@ jobs:
         set -e
         cd linux-flatten
         make INSTALL_MOD_PATH=../pkg/usr modules_install
+        make INSTALL_FW_PATH=../pkg/usr/lib/firmware firmware_install
         install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
         mkdir -p ../pkg/etc/mkinitcpio.d
         mkdir -p ../pkg/usr/share/linux-flatten

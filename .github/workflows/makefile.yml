@@ -24,10 +24,20 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Clone kernel source
+      run: |
+        set -e
+        if [ ! -d linux-flatten ]; then
+          git clone --depth=1 --single-branch -b sched/flat \
+            https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git \
+            linux-flatten
+        fi
+        cd linux-flatten
+
     - name: Prepare kernel config
       run: |
         set -e
-        zcat config.gz > config.orig
+        zcat ../config.gz > .config
 
         # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
 
@@ -106,18 +116,16 @@ jobs:
     - name: Build package
       run: |
         set -e
-        make INSTALL_MOD_PATH=pkg/usr modules_install
-        install -Dm644 arch/x86/boot/bzImage pkg/boot/vmlinuz-linux-flatten
-        mkdir -p pkg/etc/mkinitcpio.d
-        printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > pkg/etc/mkinitcpio.d/linux-flatten.preset
-        install -Dm644 linux-flatten.install pkg/usr/share/libalpm/scripts/linux-flatten.install
-        echo "${{ steps.version.outputs.kernel_version }}" > pkg/usr/share/linux-flatten/kernelrelease
+        make INSTALL_MOD_PATH=../pkg/usr modules_install
+        install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
+        mkdir -p ../pkg/etc/mkinitcpio.d
+        printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > ../pkg/etc/mkinitcpio.d/linux-flatten.preset
+        install -Dm644 ../linux-flatten.install ../pkg/usr/share/libalpm/scripts/linux-flatten.install
+        echo "${{ steps.version.outputs.kernel_version }}" > ../pkg/usr/share/linux-flatten/kernelrelease
 
     - name: Create tarball
       run: |
-        cd pkg
-        tar -czf ../linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz .
-        cd ..
+        tar -czf linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz -C pkg .
         sha256sum linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz > linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz.sha256
 
     - name: Create GitHub Release

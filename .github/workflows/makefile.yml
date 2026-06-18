@@ -37,6 +37,7 @@ jobs:
     - name: Prepare kernel config
       run: |
         set -e
+        cd linux-flatten
         make x86_64_defconfig
 
         # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
@@ -103,11 +104,13 @@ jobs:
 
     - name: Build kernel
       run: |
+        cd linux-flatten
         make -j$(nproc) bzImage modules 2>&1 | tail -20
 
     - name: Get kernel version
       id: version
       run: |
+        cd linux-flatten
         KERNEL_VERSION=$(make kernelrelease)
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
         echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
@@ -116,6 +119,7 @@ jobs:
     - name: Build package
       run: |
         set -e
+        cd linux-flatten
         make INSTALL_MOD_PATH=../pkg/usr modules_install
         install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
         mkdir -p ../pkg/etc/mkinitcpio.d

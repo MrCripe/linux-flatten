@@ -123,6 +123,7 @@ jobs:
         make INSTALL_MOD_PATH=../pkg/usr modules_install
         install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
         mkdir -p ../pkg/etc/mkinitcpio.d
+        mkdir -p ../pkg/usr/share/linux-flatten
         printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > ../pkg/etc/mkinitcpio.d/linux-flatten.preset
         install -Dm644 ../linux-flatten.install ../pkg/usr/share/libalpm/scripts/linux-flatten.install
         echo "${{ steps.version.outputs.kernel_version }}" > ../pkg/usr/share/linux-flatten/kernelrelease

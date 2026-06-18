@@ -37,7 +37,7 @@ jobs:
     - name: Prepare kernel config
       run: |
         set -e
-        zcat ../config.gz > .config
+        make x86_64_defconfig
 
         # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
 

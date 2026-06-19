@@ -139,9 +139,16 @@ jobs:
         echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
         echo "Building: $KERNEL_VERSION"
 
-        # Устанавливаем модули и firmware в pkg/
+        # Устанавливаем модули в pkg/
         make INSTALL_MOD_PATH=../pkg/usr modules_install
-        make INSTALL_FW_PATH=../pkg/usr/lib/firmware firmware_install
+
+        # Firmware (если доступен target в этом ядре)
+        if make -n firmware_install >/dev/null 2>&1; then
+          make INSTALL_FW_PATH=../pkg/usr/lib/firmware firmware_install
+        else
+          echo "firmware_install not available, skipping"
+          mkdir -p ../pkg/usr/lib/firmware
+        fi
 
         # Устанавливаем образ ядра
         install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten

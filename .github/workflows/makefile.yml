@@ -105,6 +105,10 @@ jobs:
         scripts/config -d MODULE_SIG_SHA512
         scripts/config -e MODULE_SIG_SHA256
 
+        # Отключаем GCC плагины (несовместимы с новым GCC)
+        scripts/config -d GCC_PLUGINS
+        scripts/config -d GCC_PLUGIN_LATENT_ENTROPY
+
         # Применяем olddefconfig
         make olddefconfig
 

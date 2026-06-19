@@ -10,12 +10,23 @@ Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимиза
 
 Готовые сборки: [GitHub Releases](https://github.com/MrCripe/linux-flatten/releases)
 
-```bash
-# Скачать последний релиз
-gh release download --repo MrCripe/linux-flatten --pattern "linux-flatten-*-x86_64.tar.gz"
+### Скачать пакеты
 
-# Установить
-sudo tar -xzf linux-flatten-*-x86_64.tar.gz -C /
+```bash
+# Через GitHub CLI
+gh release download --repo MrCripe/linux-flatten --pattern "linux-flatten-*.pkg.tar.zst"
+
+# Или вручную — замените VERSION на нужную
+VERSION="7.1.0-1"
+wget "https://github.com/MrCripe/linux-flatten/releases/download/${VERSION}/linux-flatten-${VERSION}-x86_64.pkg.tar.zst"
+wget "https://github.com/MrCripe/linux-flatten/releases/download/${VERSION}/linux-flatten-${VERSION}-headers-x86_64.pkg.tar.zst"
+```
+
+### Установить
+
+```bash
+# Установить ядро + хедеры
+sudo pacman -U linux-flatten-*.pkg.tar.zst
 
 # Обновить initramfs
 sudo mkinitcpio -p linux-flatten
@@ -25,6 +36,21 @@ sudo limine-scan /boot
 
 # Перезагрузиться
 sudo reboot
+```
+
+> **Примечание:** Пакет `linux-flatten` содержит ядро, все модули и firmware. Пакет `linux-flatten-headers` нужен только для сборки сторонних модулей (dkms, nvidia и т.д.). Если не собираете модули — можно установить только основной пакет.
+
+### Проверка после загрузки
+
+```bash
+uname -r
+# Вывод: 7.1.0-flatten
+
+cat /proc/version
+# Должен содержать "-flatten"
+
+# Проверить что нужные оптимизации активны
+zcat /proc/config.gz | grep -E "PREEMPT_LAZY|HZ_1000|BBR3"
 ```
 
 ---

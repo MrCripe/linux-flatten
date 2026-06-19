@@ -1,139 +1,141 @@
 # linux-flatten
 
-Linux kernel with `sched/flat` patch by Peter Zijlstra + desktop optimizations.
+Linux kernel с патчем `sched/flat` от Peter Zijlstra + оптимизациями для десктопа.
 
-**Universal kernel** — compatible with all x86-64 processors (Intel Core 2+, AMD Athlon 64+). Does not require `-march=native`.
+**Универсальное ядро** — совместимо со всеми x86-64 процессорами (Intel Core 2+, AMD Athlon 64+). Не требует `-march=native`.
+
+> 🇬🇧 [English version](README.en.md)
 
 ---
 
-## Quick Install (from releases)
+## Быстрая установка (из релизов)
 
-Pre-built packages: [GitHub Releases](https://github.com/MrCripe/linux-flatten/releases)
+Готовые сборки: [GitHub Releases](https://github.com/MrCripe/linux-flatten/releases)
 
-### Download packages
+### Скачать пакеты
 
 ```bash
-# Via GitHub CLI
+# Через GitHub CLI
 gh release download --repo MrCripe/linux-flatten --pattern "linux-flatten-*.pkg.tar.zst"
 
-# Or manually — replace VERSION with the desired one
+# Или вручную — замените VERSION на нужную
 VERSION="7.1.0-1"
 wget "https://github.com/MrCripe/linux-flatten/releases/download/${VERSION}/linux-flatten-${VERSION}-x86_64.pkg.tar.zst"
 wget "https://github.com/MrCripe/linux-flatten/releases/download/${VERSION}/linux-flatten-${VERSION}-headers-x86_64.pkg.tar.zst"
 ```
 
-### Install
+### Установить
 
 ```bash
-# Install kernel + headers
+# Установить ядро + хедеры
 sudo pacman -U linux-flatten-*.pkg.tar.zst
 
-# Update initramfs
+# Обновить initramfs
 sudo mkinitcpio -p linux-flatten
 
-# Update bootloader (Limine)
+# Обновить загрузчик (Limine)
 sudo limine-scan /boot
 
-# Reboot
+# Перезагрузиться
 sudo reboot
 ```
 
-> **Note:** The `linux-flatten` package contains the kernel, all modules, and firmware. The `linux-flatten-headers` package is only needed for building external modules (dkms, nvidia, etc.). If you don't build modules — you can install only the main package.
+> **Примечание:** Пакет `linux-flatten` содержит ядро, все модули и firmware. Пакет `linux-flatten-headers` нужен только для сборки сторонних модулей (dkms, nvidia и т.д.). Если не собираете модули — можно установить только основной пакет.
 
-### Verify after boot
+### Проверка после загрузки
 
 ```bash
 uname -r
-# Output: 7.1.0-flatten
+# Вывод: 7.1.0-flatten
 
 cat /proc/version
-# Should contain "-flatten"
+# Должен содержать "-flatten"
 
-# Check that optimizations are active
+# Проверить что нужные оптимизации активны
 zcat /proc/config.gz | grep -E "PREEMPT_LAZY|HZ_1000|BBR3"
 ```
 
 ---
 
-## Build from source
+## Сборка из исходников
 
-Requirements: Arch Linux with `base-devel`, `git`, `bc`
+Требования: Arch Linux с `base-devel`, `git`, `bc`
 
 ```bash
-# Clone repository
+# Клонировать репозиторий
 git clone https://github.com/MrCripe/linux-flatten.git
 cd linux-flatten
 
-# Build and install
+# Собрать и установить
 ./linux-flatten.sh update
 ```
 
-### Build Options
+### Опции сборки
 
 ```bash
-# Build with full optimizations
+# Собрать с полными оптимизациями
 ./linux-flatten.sh build --optimizations full
 
-# Optimize for specific CPU (x86-64-v2 = Sandy Bridge+)
+# Оптимизировать под конкретный CPU (x86-64-v2 = Sandy Bridge+)
 ./linux-flatten.sh build --target x86-64-v2
 
-# Build without installing
+# Собрать без установки
 ./linux-flatten.sh build --build-only
 
-# Install already built
+# Установить уже собранное
 ./linux-flatten.sh install
 
-# Verify current kernel
+# Проверить текущее ядро
 ./linux-flatten.sh verify
 
-# Rollback to original kernel
+# Откатить к оригинальному ядру
 ./linux-flatten.sh rollback
 ```
 
-### Optimization Levels
+### Уровни оптимизаций
 
-| Level | What's included |
-|-------|----------------|
-| `safe` | O3, HZ=1000, PREEMPT_LAZY, BBR3, THP MADVISE, ZSTD modules, SHA256 signature, no debug info, trimmed LSMs |
-| `recommended` | Safe + CONFIG_MNATIVE, NR_CPUS=8, MAXSMP off |
-| `full` | Recommended + ZSTD debug info compression |
-| `none` | Base config + sched/flat only |
+| Уровень | Что включает |
+|---------|-------------|
+| `safe` | O3, HZ=1000, PREEMPT_LAZY, BBR3, THP MADVISE, ZSTD модули, SHA256 подпись, отключение debug info и лишних LSM |
+| `recommended` | Safe + CONFIG_MNATIVE, NR_CPUS=8, отключение MAXSMP |
+| `full` | Recommended + ZSTD сжатие debug info |
+| `none` | Только базовый конфиг + sched/flat |
 
 ### CPU Target
 
-| Target | Compatibility |
+| Target | Совместимость |
 |--------|--------------|
-| `generic` | All x86-64 CPUs (v1+) — default |
-| `x86-64-v2` | Sandy Bridge and newer (recommended for most) |
-| `x86-64-v3` | Haswell and newer |
+| `generic` | Все x86-64 процессоры (v1+) — по умолчанию |
+| `x86-64-v2` | Sandy Bridge и новее (рекомендуется для большинства) |
+| `x86-64-v3` | Haswell и новее |
 
 ---
 
-## What the install script does
+## Что делает install-скрипт
 
-After `pacman -U linux-flatten-*.pkg.tar.zst` automatically:
-- Creates `/etc/mkinitcpio.d/linux-flatten.preset`
-- Generates initramfs (`mkinitcpio -p linux-flatten`)
-- Adds/updates Limine entry with `pcie_aspm=performance`
+После `pacman -U linux-flatten-*.pkg.tar.zst` автоматически:
+- Создаёт `/etc/mkinitcpio.d/linux-flatten.preset`
+- Генерирует initramfs (`mkinitcpio -p linux-flatten`)
+- Добавляет/обновляет запись в Limine с `pcie_aspm=performance`
 
-No additional actions needed — just install the package and reboot.
+Никаких дополнительных действий не требуется — просто установил пакет и перезагрузился.
 
 ---
 
-## Project Structure
+## Структура проекта
 
 ```
 linux-flatten/
-├── linux-flatten.sh          # Unified CLI (update/build/install/verify/rollback)
-├── PKGBUILD                  # Arch Linux package formula
-├── linux-flatten.install     # Post-install script (mkinitcpio + Limine)
-├── Makefile                  # Build/clean targets
-├── .github/workflows/        # CI: build + GitHub Release
+├── linux-flatten.sh          # Единый CLI (update/build/install/verify/rollback)
+├── PKGBUILD                  # Arch Linux пакетная формула
+├── linux-flatten.install     # Post-install скрипт (mkinitcpio + Limine)
+├── Makefile                  # Цели сборки/чистки
+├── .github/workflows/        # CI: сборка + GitHub Release
 └── README.md
 ```
 
 ---
 
-## License
+## Лицензия
 
-GPLv2 — same as the original Linux kernel.
+GPLv2 — как и оригинальное ядро Linux.

@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     container:
       image: archlinux:latest
 
@@ -116,7 +116,7 @@ jobs:
         scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
     - name: Build kernel and package
-      timeout-minutes: 90
+      timeout-minutes: 300
       run: |
         set -e
         cd linux-flatten

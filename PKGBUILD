@@ -37,7 +37,7 @@ optdepends=(
   'wireless-regdb: to set the correct wireless channels of your country'
   'modprobed-db: Keeps track of EVERY kernel module that has ever been probed'
 )
-options=('!strip' '!debug' '!lto' '!check')
+options=('!strip' '!debug' '!lto')
 install=linux-flatten.install
 
 _kernel_branch="sched/flat"

@@ -37,7 +37,7 @@ optdepends=(
   'wireless-regdb: to set the correct wireless channels of your country'
   'modprobed-db: Keeps track of EVERY kernel module that has ever been probed'
 )
-options=('!strip' '!debug' '!lto')
+options=('!strip' '!debug' '!lto' '!check')
 install=linux-flatten.install
 
 _kernel_branch="sched/flat"
@@ -61,8 +61,9 @@ prepare() {
 
     echo "Setting config..."
 
-    # Start with defconfig
+    # Start with defconfig then enable ALL modules
     make defconfig
+    make allmodconfig
 
     # ── CPU target: generic x86-64 (works everywhere) ──
     scripts/config -d GENERIC_CPU -d MZEN4 -d X86_NATIVE_CPU

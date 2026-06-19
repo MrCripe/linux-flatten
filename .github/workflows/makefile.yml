@@ -48,16 +48,13 @@ jobs:
     - name: Get kernel version
       id: version
       run: |
-        PKG=$(ls -t linux-flatten-*.pkg.tar.zst 2>/dev/null | head -1)
-        if [ -z "$PKG" ]; then
-          echo "ERROR: No package found"
-          exit 1
-        fi
-        echo "package=$PKG" >> $GITHUB_OUTPUT
-        KERNEL_VERSION=$(echo "$PKG" | sed 's/linux-flatten-//;s/-x86_64.pkg.tar.zst//')
+        cd src/linux-flatten
+        KERNEL_VERSION=$(make kernelrelease)
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
-        echo "PKG: $PKG"
         echo "VERSION: $KERNEL_VERSION"
+        cd "$GITHUB_WORKSPACE"
+        PKG=$(ls -t linux-flatten-*.pkg.tar.zst 2>/dev/null | head -1)
+        echo "package=$PKG" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       if: github.ref == 'refs/heads/main'

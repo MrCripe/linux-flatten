@@ -11,11 +11,12 @@ pkgrel=1
 arch=('x86_64')
 url="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
 license=('GPL2')
-depends=('coreutils' 'kmod' 'initramfs')
+depends=('coreutils' 'kmod' 'mkinitcpio')
 makedepends=(
   bc
   binutils
   cpio
+  fakeroot
   gettext
   glibc
   libelf
@@ -41,9 +42,6 @@ install=linux-flatten.install
 
 _kernel_branch="sched/flat"
 _kernel_repo="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
-
-# Build flags
-BUILD_FLAGS=()
 
 _die() { error "$@"; exit 1; }
 
@@ -140,7 +138,7 @@ prepare() {
 
 build() {
     cd "${pkgbase}-${pkgver}"
-    make "${BUILD_FLAGS[@]}" -j"$(nproc)" all
+    make -j"$(nproc)" all
 }
 
 _package() {
@@ -157,7 +155,7 @@ _package() {
     echo "$pkgbase" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"
 
     echo "Installing modules..."
-    ZSTD_CLEVEL=19 make "${BUILD_FLAGS[@]}" INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
+    ZSTD_CLEVEL=19 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
         DEPMOD=/doesnt/exist modules_install
 
     # Remove build links
@@ -203,11 +201,11 @@ _package-headers() {
     echo "Installing KConfig files..."
     find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
 
-    if compgen -G "rust/*.rmeta" 1>/dev/null; then
+    if ls rust/*.rmeta 1>/dev/null 2>&1; then
         install -Dt "$builddir/rust" -m644 rust/*.rmeta
     fi
 
-    if compgen -G "rust/*.so" 1>/dev/null; then
+    if ls rust/*.so 1>/dev/null 2>&1; then
         install -Dt "$builddir/rust" rust/*.so
     fi
 

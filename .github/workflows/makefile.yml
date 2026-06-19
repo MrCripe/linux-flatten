@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python pahole zstd
+        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python pahole zstd linux-firmware
 
     - uses: actions/checkout@v4
       with:
@@ -31,6 +31,10 @@ jobs:
         # makepkg refuses to run as root — create a builder user
         useradd -m builder
         chown -R builder:builder "$GITHUB_WORKSPACE"
+
+        # Allow builder to run pacman without password (for dependency installs)
+        echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+        chmod 0440 /etc/sudoers.d/builder
 
         # Clone + build as non-root user
         su - builder -s /bin/bash -c "cd '$GITHUB_WORKSPACE' && \
@@ -44,14 +48,12 @@ jobs:
     - name: Get kernel version
       id: version
       run: |
-        # Extract version from built package
         PKG=$(ls -t linux-flatten-*.pkg.tar.zst 2>/dev/null | head -1)
         if [ -z "$PKG" ]; then
           echo "ERROR: No package found"
           exit 1
         fi
         echo "package=$PKG" >> $GITHUB_OUTPUT
-        # Extract version from pkg filename or PKGBUILD
         KERNEL_VERSION=$(echo "$PKG" | sed 's/linux-flatten-//;s/-x86_64.pkg.tar.zst//')
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
         echo "PKG: $PKG"
@@ -86,16 +88,8 @@ jobs:
 
           ### Установка
           ```bash
-          # Установить пакет (ядро + хедеры + модули)
           sudo pacman -U linux-flatten-*.pkg.tar.zst
-
-          # Обновить initramfs
           sudo mkinitcpio -p linux-flatten
-
-          # Обновить загрузчик (Limine)
-          sudo limine-scan /boot
-
-          # Перезагрузиться
           sudo reboot
           ```
 

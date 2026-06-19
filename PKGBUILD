@@ -43,6 +43,20 @@ install=linux-flatten.install
 _kernel_branch="sched/flat"
 _kernel_repo="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
 
+# Get version from git
+_get_version() {
+    local srcname="${pkgbase}-${pkgver}"
+    if [ -d "$srcname" ]; then
+        cd "$srcname"
+        local ver
+        ver=$(make kernelrelease 2>/dev/null | sed 's/-flatten//')
+        cd ..
+        echo "$ver"
+    else
+        echo "${pkgver}"
+    fi
+}
+
 _die() { error "$@"; exit 1; }
 
 prepare() {
@@ -54,6 +68,10 @@ prepare() {
     fi
 
     cd "$srcname"
+
+    # Update pkgver from kernel release
+    pkgver=$(make kernelrelease | sed 's/-flatten//')
+    pkgrel=1
 
     echo "Setting version..."
     echo "-$pkgrel" > localversion.10-pkgrel

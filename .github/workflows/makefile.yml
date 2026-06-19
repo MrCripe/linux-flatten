@@ -28,15 +28,18 @@ jobs:
     - name: Build kernel via makepkg
       run: |
         set -e
-        # Clone kernel source into src/ for makepkg
-        if [ ! -d src/linux-flatten ]; then
-          git clone --depth=1 --single-branch -b sched/flat \
-            https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git \
-            src/linux-flatten
-        fi
+        # makepkg refuses to run as root — create a builder user
+        useradd -m builder
+        chown -R builder:builder "$GITHUB_WORKSPACE"
 
-        # Build with makepkg (runs PKGBUILD: prepare, build, package)
-        makepkg -sf --noconfirm
+        # Clone + build as non-root user
+        su - builder -s /bin/bash -c "cd '$GITHUB_WORKSPACE' && \
+          if [ ! -d src/linux-flatten ]; then \
+            git clone --depth=1 --single-branch -b sched/flat \
+              https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git \
+              src/linux-flatten; \
+          fi && \
+          makepkg -sf --noconfirm"
 
     - name: Get kernel version
       id: version

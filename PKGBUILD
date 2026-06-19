@@ -42,36 +42,25 @@ install=linux-flatten.install
 
 _kernel_branch="sched/flat"
 _kernel_repo="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
-
-# Get version from git
-_get_version() {
-    local srcname="${pkgbase}-${pkgver}"
-    if [ -d "$srcname" ]; then
-        cd "$srcname"
-        local ver
-        ver=$(make kernelrelease 2>/dev/null | sed 's/-flatten//')
-        cd ..
-        echo "$ver"
-    else
-        echo "${pkgver}"
-    fi
-}
+_srcname="linux-flatten"
 
 _die() { error "$@"; exit 1; }
 
 prepare() {
-    local srcname="${pkgbase}-${pkgver}"
-
-    if [ ! -d "$srcname" ]; then
+    if [ ! -d "$_srcname" ]; then
         git clone --depth=1 --single-branch -b "$_kernel_branch" \
-            "$_kernel_repo" "$srcname"
+            "$_kernel_repo" "$_srcname"
     fi
 
-    cd "$srcname"
+    cd "$_srcname"
 
-    # Update pkgver from kernel release
-    pkgver=$(make kernelrelease | sed 's/-flatten//')
+    # Detect version from kernel source and update pkgver
+    local kver
+    kver=$(make kernelrelease | sed 's/-flatten//')
+    pkgver="$kver"
     pkgrel=1
+
+    echo "Building version: ${pkgbase}-${pkgver}"
 
     echo "Setting version..."
     echo "-$pkgrel" > localversion.10-pkgrel
@@ -156,7 +145,7 @@ prepare() {
 }
 
 build() {
-    cd "${pkgbase}-${pkgver}"
+    cd "$_srcname"
     make -j"$(nproc)" all
 }
 
@@ -164,7 +153,7 @@ _package() {
     pkgdesc="Linux kernel with sched/flat patch + desktop optimizations"
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE)
 
-    cd "${pkgbase}-${pkgver}"
+    cd "$_srcname"
 
     local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
 
@@ -186,7 +175,7 @@ _package-headers() {
     depends=(binutils glibc libelf libgcc openssl pahole xxhash zlib zstd "$pkgbase")
     provides=(LINUX-HEADERS)
 
-    cd "${pkgbase}-${pkgver}"
+    cd "$_srcname"
     local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
 
     echo "Installing build files..."

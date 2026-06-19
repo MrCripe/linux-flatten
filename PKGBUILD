@@ -250,4 +250,5 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-sha256sums=('SKIP' 'SKIP')
+sha256sums=('SKIP'
+            'SKIP')

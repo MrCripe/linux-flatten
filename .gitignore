@@ -3,6 +3,8 @@ pkg/
 src/
 *.pkg.tar.zst
 *.pkg.tar.zst.sig
+*.tar.gz
+*.tar.gz.sha256
 *.log
 config.gz
 config.gz.backup
@@ -24,17 +26,8 @@ include/generated/
 arch/x86/boot/bzImage
 arch/x86/boot/initramfs*
 
-# Generated docs (regenerated from CI)
+# Generated docs
 kernelrelease.txt
-
-# Analysis and audit reports (historical, not needed in repo)
-ANALYSIS.md
-APPLIED_OPTIMIZATIONS.md
-AUDIT_REPORT.md
-CACHYOS_ORIGINAL_ANALYSIS.md
-FINAL_AUDIT_REPORT.md
-SELF_AUDIT.md
-PROPOSED_OPTIMIZATIONS.md
 
 # Editor
 *.swp

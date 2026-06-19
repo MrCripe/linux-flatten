@@ -245,4 +245,11 @@ _package-headers() {
     ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
 }
 
+for _p in "${pkgname[@]}"; do
+    eval "package_$_p() {
+    $(declare -f "_package${_p#$pkgbase}")
+    _package${_p#$pkgbase}
+    }"
+done
+
 sha256sums=('SKIP' 'SKIP')

@@ -19,159 +19,40 @@ jobs:
     - name: Install dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python
+        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python pahole zstd
 
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Clone kernel source
+    - name: Build kernel via makepkg
       run: |
         set -e
-        if [ ! -d linux-flatten ]; then
+        # Clone kernel source into src/ for makepkg
+        if [ ! -d src/linux-flatten ]; then
           git clone --depth=1 --single-branch -b sched/flat \
             https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git \
-            linux-flatten
+            src/linux-flatten
         fi
-        cd linux-flatten
 
-    - name: Prepare kernel config
+        # Build with makepkg (runs PKGBUILD: prepare, build, package)
+        makepkg -sf --noconfirm
+
+    - name: Get kernel version
+      id: version
       run: |
-        set -e
-        cd linux-flatten
-
-        # Начинаем с x86_64_defconfig как базы
-        make x86_64_defconfig
-
-        # Включаем ВСЁ как модуль (кроме ядра) — полный набор драйверов
-        # allyesconfig = all + y, allmodconfig = all + m — последний лучше
-        # т.к. core ядро остаётся built-in для совместимости, а всё остальное = модули
-        make allmodconfig
-
-        # === Максимальные оптимизации, совместимые со ВСЕМИ x86-64 ===
-
-        # Compiler: -O3 (максимальная оптимизация)
-        scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
-        scripts/config -e CC_OPTIMIZE_FOR_PERFORMANCE_O3
-
-        # Частота таймера: 1000 Hz (минимальная задержка)
-        scripts/config -d HZ_300
-        scripts/config -e HZ_1000
-        scripts/config --set-val HZ 1000
-
-        # Preempt Lazy (sched/flat требует)
-        scripts/config -e PREEMPT_LAZY
-        scripts/config -d PREEMPT
-
-        # BBR3 TCP congestion control
-        scripts/config -m TCP_CONG_BBR2
-        scripts/config -m TCP_CONG_BBR3
-
-        # THP: MADVISE (безопаснее ALWAYS для десктопа)
-        scripts/config -e TRANSPARENT_HUGEPAGE_MADVISE
-        scripts/config -d TRANSPARENT_HUGEPAGE_ALWAYS
-
-        # Модули: ZSTD сжатие (быстрее XZ)
-        scripts/config -d MODULE_COMPRESS_XZ
-        scripts/config -e MODULE_COMPRESS_ZSTD
-
-        # Отключаем NUMA (не нужно для single/dual socket desktop)
-        scripts/config -d NUMA
-        scripts/config -d NUMA_BALANCING
-
-        # Отключаем debug info для размера
-        scripts/config -d DEBUG_INFO
-        scripts/config -d DEBUG_INFO_DWARF4
-        scripts/config -d DEBUG_INFO_DWARF5
-        scripts/config -e DEBUG_INFO_NONE
-
-        # Отключаем лишние LSM (ускорение загрузки)
-        scripts/config -d SECURITY_YAMA
-        scripts/config -d SECURITY_LANDLOCK
-        scripts/config -d SECURITY_SELINUX
-        scripts/config -d SECURITY_SMACK
-        scripts/config -d SECURITY_APPARMOR
-
-        # Отключаем ненужное для уменьшения размера и ускорения
-        scripts/config -d CONFIG_FTRACE
-        scripts/config -d CONFIG_KPROBES
-        scripts/config -d CONFIG_KGDB
-        scripts/config -d CONFIG_KEXEC
-        scripts/config -d CONFIG_CRASH_DUMP
-        scripts/config -d CONFIG_EFI_MIXED
-        scripts/config -d SCHED_CLASS_EXT
-
-        # Подпись модулей: SHA256 (быстрее SHA512)
-        scripts/config -d MODULE_SIG_SHA512
-        scripts/config -e MODULE_SIG_SHA256
-
-        # Отключаем GCC плагины (несовместимы с новым GCC)
-        scripts/config -d GCC_PLUGINS
-        scripts/config -d GCC_PLUGIN_LATENT_ENTROPY
-
-        # Применяем olddefconfig
-        make olddefconfig
-
-        # Добавляем localversion
-        scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
-
-    - name: Build kernel and package
-      timeout-minutes: 300
-      run: |
-        set -e
-        cd linux-flatten
-
-        # Собираем ядро и ВСЕ модули
-        make -j$(nproc) bzImage modules
-
-        # Проверяем что modules.order существует
-        if [ ! -f modules.order ]; then
-          echo "ERROR: modules.order not found!"
-          ls -la modules.order 2>&1 || true
+        # Extract version from built package
+        PKG=$(ls -t linux-flatten-*.pkg.tar.zst 2>/dev/null | head -1)
+        if [ -z "$PKG" ]; then
+          echo "ERROR: No package found"
           exit 1
         fi
-
-        echo "=== modules.order OK, $(wc -l < modules.order) modules ==="
-
-        # Получаем версию ядра
-        KERNEL_VERSION=$(make kernelrelease)
+        echo "package=$PKG" >> $GITHUB_OUTPUT
+        # Extract version from pkg filename or PKGBUILD
+        KERNEL_VERSION=$(echo "$PKG" | sed 's/linux-flatten-//;s/-x86_64.pkg.tar.zst//')
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
-        echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
-        echo "Building: $KERNEL_VERSION"
-
-        # Устанавливаем модули в pkg/
-        make INSTALL_MOD_PATH=../pkg/usr modules_install
-
-        # Firmware (если доступен target в этом ядре)
-        if make -n firmware_install >/dev/null 2>&1; then
-          make INSTALL_FW_PATH=../pkg/usr/lib/firmware firmware_install
-        else
-          echo "firmware_install not available, skipping"
-          mkdir -p ../pkg/usr/lib/firmware
-        fi
-
-        # Устанавливаем образ ядра
-        install -Dm644 arch/x86/boot/bzImage ../pkg/boot/vmlinuz-linux-flatten
-
-        # Preset для mkinitcpio
-        mkdir -p ../pkg/etc/mkinitcpio.d
-        printf 'ALL_kver="/boot/vmlinuz-linux-flatten"\nALL_config="/etc/mkinitcpio.conf"\ndefault_image="/boot/initramfs-linux-flatten.img"\n' > ../pkg/etc/mkinitcpio.d/linux-flatten.preset
-
-        # Install script
-        install -Dm644 ../linux-flatten.install ../pkg/usr/share/libalpm/scripts/linux-flatten.install
-
-        # Kernel version file
-        echo "$KERNEL_VERSION" > ../pkg/usr/share/linux-flatten/kernelrelease
-
-        echo "=== Package ready ==="
-        ls -lh ../pkg/boot/vmlinuz-linux-flatten
-        du -sh ../pkg/usr/lib/modules
-        du -sh ../pkg/usr/lib/firmware
-
-    - name: Create tarball
-      run: |
-        tar -czf linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz -C pkg .
-        sha256sum linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz > linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz.sha256
+        echo "PKG: $PKG"
+        echo "VERSION: $KERNEL_VERSION"
 
     - name: Create GitHub Release
       if: github.ref == 'refs/heads/main'
@@ -202,14 +83,17 @@ jobs:
 
           ### Установка
           ```bash
-          # Распаковать в систему
-          sudo tar -xzf linux-flatten-*-x86_64.tar.gz -C /
+          # Установить пакет (ядро + хедеры + модули)
+          sudo pacman -U linux-flatten-*.pkg.tar.zst
 
           # Обновить initramfs
           sudo mkinitcpio -p linux-flatten
 
           # Обновить загрузчик (Limine)
           sudo limine-scan /boot
+
+          # Перезагрузиться
+          sudo reboot
           ```
 
           ### Проверка
@@ -218,8 +102,8 @@ jobs:
           cat /proc/version
           ```
         files: |
-          linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz
-          linux-flatten-${{ steps.version.outputs.kernel_version }}-x86_64.tar.gz.sha256
+          linux-flatten-*.pkg.tar.zst
+          linux-flatten-*-headers-*.pkg.tar.zst
         draft: false
         prerelease: false
       env:

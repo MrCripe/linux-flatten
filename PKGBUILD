@@ -54,9 +54,12 @@ prepare() {
 
     cd "$_srcname"
 
+    # Generate basic config first so make kernelrelease works
+    make defconfig 2>/dev/null
+
     # Detect version from kernel source and update pkgver
     local kver
-    kver=$(make kernelrelease | sed 's/-flatten//')
+    kver=$(make kernelrelease 2>/dev/null | sed 's/-flatten//')
     pkgver="$kver"
     pkgrel=1
 

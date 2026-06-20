@@ -76,12 +76,11 @@ prepare() {
     make allmodconfig
 
     # ── CPU target: Xeon E31270 (Sandy Bridge) ──
-    # MCORE2 = Sandy Bridge, MNATIVE = auto-detect CPU features
+    # Use X86_NATIVE_CPU for auto-detection of CPU features at compile time
     scripts/config -d GENERIC_CPU
-    scripts/config -e MCORE2
-    scripts/config -e MNATIVE
-    scripts/config -d X86_NATIVE_CPU
-    info "CPU: Xeon E31270 (Sandy Bridge, MCORE2 + MNATIVE)"
+    scripts/config -d MZEN4
+    scripts/config -e X86_NATIVE_CPU
+    info "CPU: Xeon E31270 (Sandy Bridge, X86_NATIVE_CPU)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE

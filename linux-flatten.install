@@ -1,3 +1,28 @@
-# linux-flatten.install — placeholder
-# This file is required by PKGBUILD but all post-install logic is handled
-# by the package's install script at /usr/share/libalpm/scripts/linux-flatten.install
+post_install() {
+    # Create mkinitcpio preset
+    mkdir -p /etc/mkinitcpio.d
+    cat > /etc/mkinitcpio.d/linux-flatten.preset <<'EOF'
+ALL_kver="/boot/vmlinuz-linux-flatten"
+ALL_config="/etc/mkinitcpio.conf"
+default_image="/boot/initramfs-linux-flatten.img"
+fallback_image="/boot/initramfs-linux-flatten-fallback.img"
+fallback_options="-S autodetect"
+EOF
+
+    # Generate initramfs
+    if command -v mkinitcpio >/dev/null 2>&1; then
+        mkinitcpio -p linux-flatten 2>/dev/null || true
+    fi
+}
+
+post_upgrade() {
+    post_install
+}
+
+pre_remove() {
+    rm -f /etc/mkinitcpio.d/linux-flatten.preset
+}
+
+post_remove() {
+    :
+}

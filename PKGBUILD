@@ -80,7 +80,7 @@ prepare() {
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
     scripts/config -e X86_NATIVE_CPU
-    info "CPU: Xeon E31270 (Sandy Bridge, X86_NATIVE_CPU)"
+    msg "CPU: Xeon E31270 (Sandy Bridge, X86_NATIVE_CPU)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -143,7 +143,7 @@ prepare() {
     # ── NR_CPUS: 8 (4 cores / 8 threads on Xeon E31270) ──
     scripts/config --set-val CONFIG_NR_CPUS 8
     scripts/config -d CONFIG_MAXSMP
-    info "NR_CPUS: 8, MAXSMP: off"
+    msg "NR_CPUS: 8, MAXSMP: off"
 
     # ── Local version ──
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"

@@ -57,13 +57,10 @@ prepare() {
     # Generate basic config first so make kernelrelease works
     make defconfig 2>/dev/null
 
-    # Detect version from kernel source and update pkgver
+    # Detect version from kernel source
     local kver
     kver=$(make kernelrelease 2>/dev/null | sed 's/-flatten//')
-    pkgver="$kver"
-    pkgrel=1
-
-    echo "Building version: ${pkgbase}-${pkgver}"
+    echo "Building version: ${pkgbase}-${kver}"
 
     echo "Setting version..."
     echo "-$pkgrel" > localversion.10-pkgrel
@@ -71,16 +68,14 @@ prepare() {
 
     echo "Setting config..."
 
-    # Start with defconfig then enable ALL modules
-    make defconfig
+    # Enable ALL modules
     make allmodconfig
 
     # ── CPU target: Xeon E31270 (Sandy Bridge) ──
-    # Use X86_NATIVE_CPU for auto-detection of CPU features at compile time
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
-    scripts/config -e X86_NATIVE_CPU
-    msg "CPU: Xeon E31270 (Sandy Bridge, X86_NATIVE_CPU)"
+    scripts/config -e MSANDYBRIDGE
+    msg "CPU: Xeon E31270 (Sandy Bridge, MSANDYBRIDGE)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -95,8 +90,8 @@ prepare() {
     scripts/config -e PREEMPT_LAZY
     scripts/config -d PREEMPT
 
-    # ── BBR3 ──
-    scripts/config -m TCP_CONG_BBR3
+    # ── BBR ──
+    scripts/config -m TCP_CONG_BBR
 
     # ── THP: MADVISE ──
     scripts/config -e TRANSPARENT_HUGEPAGE_MADVISE
@@ -124,12 +119,12 @@ prepare() {
     scripts/config -d SECURITY_APPARMOR
 
     # ── Disable unnecessary features ──
-    scripts/config -d CONFIG_FTRACE
-    scripts/config -d CONFIG_KPROBES
-    scripts/config -d CONFIG_KGDB
-    scripts/config -d CONFIG_KEXEC
-    scripts/config -d CONFIG_CRASH_DUMP
-    scripts/config -d CONFIG_EFI_MIXED
+    scripts/config -d FTRACE
+    scripts/config -d KPROBES
+    scripts/config -d KGDB
+    scripts/config -d KEXEC
+    scripts/config -d CRASH_DUMP
+    scripts/config -d EFI_MIXED
     scripts/config -d SCHED_CLASS_EXT
 
     # ── Module signature: SHA256 ──

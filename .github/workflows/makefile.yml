@@ -43,11 +43,9 @@ jobs:
     - name: Get kernel version
       id: version
       run: |
-        cd src/linux-flatten
-        KERNEL_VERSION=$(make kernelrelease)
+        KERNEL_VERSION=$(cat src/linux-flatten/version)
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
         echo "VERSION: $KERNEL_VERSION"
-        cd "$GITHUB_WORKSPACE"
         ls -lh linux-flatten-*.pkg.tar.zst 2>/dev/null
 
     - name: Create GitHub Release

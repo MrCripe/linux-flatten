@@ -1,8 +1,8 @@
-name: Build & Release Kernel
+name: Build & Release Kernel (Xeon E31270)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "xeon-e31270" ]
   workflow_dispatch:
 
 permissions:
@@ -32,17 +32,12 @@ jobs:
         useradd -m builder
         chown -R builder:builder "$GITHUB_WORKSPACE"
 
-        # Allow builder to run pacman without password (for dependency installs)
+        # Allow builder to run pacman without password
         echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
         chmod 0440 /etc/sudoers.d/builder
 
         # Clone + build as non-root user
         su - builder -s /bin/bash -c "cd '$GITHUB_WORKSPACE' && \
-          if [ ! -d src/linux-flatten ]; then \
-            git clone --depth=1 --single-branch -b sched/flat \
-              https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git \
-              src/linux-flatten; \
-          fi && \
           makepkg -sf --noconfirm"
 
     - name: Get kernel version
@@ -53,11 +48,10 @@ jobs:
         echo "kernel_version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
         echo "VERSION: $KERNEL_VERSION"
         cd "$GITHUB_WORKSPACE"
-        PKG=$(ls -t linux-flatten-*.pkg.tar.zst 2>/dev/null | head -1)
-        echo "package=$PKG" >> $GITHUB_OUTPUT
+        ls -lh linux-flatten-*.pkg.tar.zst 2>/dev/null
 
     - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/xeon-e31270'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.kernel_version }}
@@ -65,39 +59,35 @@ jobs:
         body: |
           ## linux-flatten ${{ steps.version.outputs.kernel_version }}
 
-          **Универсальное ядро** — совместимо со всеми x86-64 процессорами (Intel и AMD).
+          **Optimized for Intel Xeon E31270 (Sandy Bridge)**
 
-          ### Оптимизации
-          - **sched/flat** — flattened runqueue от Peter Zijlstra
-          - **PREEMPT_LAZY** — минимальные задержки переключения
-          - **O3** — максимальная оптимизация компилятора
-          - **HZ=1000** — высокая частота таймера
-          - **BBR3** — современный TCP congestion control
-          - **THP MADVISE** — безопасные huge pages
-          - **ZSTD модули** — быстрая загрузка модулей
-          - **SHA256 подпись** — быстрая проверка модулей
-          - **Без debug info** — минимальный размер
+          ### Optimizations
+          - **sched/flat** — flattened runqueue by Peter Zijlstra
+          - **MCORE2 + MNATIVE** — Sandy Bridge native optimizations
+          - **PREEMPT_LAZY** — minimal latency switching
+          - **O3** — maximum compiler optimization
+          - **HZ=1000** — high timer frequency
+          - **BBR3** — modern TCP congestion control
+          - **THP MADVISE** — safe huge pages
+          - **ZSTD modules** — fast module loading
+          - **NR_CPUS=8** — optimized for 4 cores / 8 threads
+          - **No debug info** — minimal size
+          - **allmodconfig** — ALL drivers as modules
 
-          ### Совместимость
-          - Работает на **любом** x86-64 процессоре (v1+)
-          - НЕ требует `-march=native`
-          - Подходит для Intel Core 2 и новее, AMD Athlon 64 и новее
-
-          ### Установка
+          ### Installation
           ```bash
           sudo pacman -U linux-flatten-*.pkg.tar.zst
           sudo mkinitcpio -p linux-flatten
           sudo reboot
           ```
 
-          ### Проверка
+          ### Verify
           ```bash
           uname -r
           cat /proc/version
           ```
         files: |
           linux-flatten-*.pkg.tar.zst
-          linux-flatten-*-headers-*.pkg.tar.zst
         draft: false
         prerelease: false
       env:

@@ -72,8 +72,13 @@ prepare() {
     make defconfig
     make allmodconfig
 
-    # ── CPU target: generic x86-64 (works everywhere) ──
-    scripts/config -d GENERIC_CPU -d MZEN4 -d X86_NATIVE_CPU
+    # ── CPU target: Xeon E31270 (Sandy Bridge) ──
+    # MCORE2 = Sandy Bridge, MNATIVE = auto-detect CPU features
+    scripts/config -d GENERIC_CPU
+    scripts/config -e MCORE2
+    scripts/config -e MNATIVE
+    scripts/config -d X86_NATIVE_CPU
+    info "CPU: Xeon E31270 (Sandy Bridge, MCORE2 + MNATIVE)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -132,6 +137,11 @@ prepare() {
     # ── Disable GCC plugins (latent_entropy incompatible with new GCC) ──
     scripts/config -d GCC_PLUGINS
     scripts/config -d GCC_PLUGIN_LATENT_ENTROPY
+
+    # ── NR_CPUS: 8 (4 cores / 8 threads on Xeon E31270) ──
+    scripts/config --set-val CONFIG_NR_CPUS 8
+    scripts/config -d CONFIG_MAXSMP
+    info "NR_CPUS: 8, MAXSMP: off"
 
     # ── Local version ──
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"

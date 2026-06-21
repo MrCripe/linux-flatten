@@ -44,10 +44,6 @@ _kernel_branch="sched/flat"
 _kernel_repo="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
 _srcname="linux-flatten"
 
-_is_ci_build() {
-    [[ -n "$CI" || -n "$GITHUB_RUN_ID" ]]
-}
-
 _die() { error "$@"; exit 1; }
 
 prepare() {
@@ -58,13 +54,13 @@ prepare() {
 
     cd "$_srcname"
 
-    # Use CachyOS config as base
-    cp ../config .config
-
-    # Detect version from kernel source
+    # Detect version from kernel source and update pkgver
     local kver
-    kver=$(make kernelrelease 2>/dev/null | sed 's/-flatten//')
-    echo "Building version: ${pkgbase}-${kver}"
+    kver=$(make kernelrelease | sed 's/-flatten//')
+    pkgver="$kver"
+    pkgrel=1
+
+    echo "Building version: ${pkgbase}-${pkgver}"
 
     echo "Setting version..."
     echo "-$pkgrel" > localversion.10-pkgrel
@@ -72,15 +68,16 @@ prepare() {
 
     echo "Setting config..."
 
-    # ── sched/flat — flattened runqueue (main purpose of this build) ──
-    scripts/config -e SCHED_FLATTEN
-    echo "sched/flat: enabled"
+    # Start with defconfig then enable ALL modules
+    make defconfig
+    make allmodconfig
 
-    # ── CPU target: generic x86-64 (works on all CPUs) ──
-    scripts/config -d MSANDYBRIDGE
+    # ── CPU target: generic x86-64 (works everywhere) ──
+    scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
-    scripts/config -e GENERIC_CPU
-    echo "CPU: generic x86-64 (universal)"
+    scripts/config -e MSANDYBRIDGE
+    scripts/config --set-val CONFIG_NR_CPUS 8
+    scripts/config -d CONFIG_MAXSMP
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -95,8 +92,8 @@ prepare() {
     scripts/config -e PREEMPT_LAZY
     scripts/config -d PREEMPT
 
-    # ── BBR ──
-    scripts/config -m TCP_CONG_BBR
+    # ── BBR3 ──
+    scripts/config -m TCP_CONG_BBR3
 
     # ── THP: MADVISE ──
     scripts/config -e TRANSPARENT_HUGEPAGE_MADVISE
@@ -124,19 +121,13 @@ prepare() {
     scripts/config -d SECURITY_APPARMOR
 
     # ── Disable unnecessary features ──
-    scripts/config -d FTRACE
-    scripts/config -d KPROBES
-    scripts/config -d KGDB
-    scripts/config -d KEXEC
-    scripts/config -d CRASH_DUMP
-    scripts/config -d EFI_MIXED
+    scripts/config -d CONFIG_FTRACE
+    scripts/config -d CONFIG_KPROBES
+    scripts/config -d CONFIG_KGDB
+    scripts/config -d CONFIG_KEXEC
+    scripts/config -d CONFIG_CRASH_DUMP
+    scripts/config -d CONFIG_EFI_MIXED
     scripts/config -d SCHED_CLASS_EXT
-    scripts/config -d LTO
-    scripts/config -d LTO_CLANG
-    scripts/config -d DEBUG_KERNEL
-    scripts/config -d KFENCE
-    scripts/config -d SLUB_DEBUG
-    scripts/config -d BUG_ON_DATA_CORRUPTION
 
     # ── Module signature: SHA256 ──
     scripts/config -d MODULE_SIG_SHA512
@@ -149,30 +140,8 @@ prepare() {
     # ── Local version ──
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
-    # ── Disable CachyOS-specific options not in peterz/queue ──
-    scripts/config -d SCHED_BORE
-    scripts/config -d SCHED_ALT
-    scripts/config -d SCHED_BMQ
-    scripts/config -d CACHY
-    scripts/config -d SCHED_CLASS_EXT
-    scripts/config -d LTO_CLANG_THIN
-    scripts/config -d LTO_CLANG_FULL
-    scripts/config -e LTO_NONE
-    scripts/config -d AUTOFDO_CLANG
-    scripts/config -d PROPELLER_CLANG
-
     # Finalize
-    make prepare
-    yes "" | make config >/dev/null
-
-    # CI: use -Os instead of -O3, reduce debug info
-    if _is_ci_build; then
-        scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE_O3
-        scripts/config -e CC_OPTIMIZE_FOR_SIZE
-        scripts/config -d DEBUG_KERNEL
-        scripts/config -e DEBUG_INFO_REDUCED
-        echo "CI build: -Os, reduced debug info"
-    fi
+    make olddefconfig
 
     # Show version
     make -s kernelrelease > version
@@ -185,7 +154,7 @@ build() {
 }
 
 _package() {
-    pkgdesc="Linux kernel with Peter Zijlstra's sched/flat flattened runqueue scheduler"
+    pkgdesc="Linux kernel with sched/flat patch + desktop optimizations"
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE)
 
     cd "$_srcname"
@@ -293,5 +262,5 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-source=("config")
-sha256sums=("SKIP")
+source=()
+sha256sums=()

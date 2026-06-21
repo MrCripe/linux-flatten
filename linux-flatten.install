@@ -1,28 +1,137 @@
 post_install() {
-    # Create mkinitcpio preset
-    mkdir -p /etc/mkinitcpio.d
-    cat > /etc/mkinitcpio.d/linux-flatten.preset <<'EOF'
-ALL_kver="/boot/vmlinuz-linux-flatten"
-ALL_config="/etc/mkinitcpio.conf"
-default_image="/boot/initramfs-linux-flatten.img"
-fallback_image="/boot/initramfs-linux-flatten-fallback.img"
-fallback_options="-S autodetect"
-EOF
-
-    # Generate initramfs
-    if command -v mkinitcpio >/dev/null 2>&1; then
-        mkinitcpio -p linux-flatten 2>/dev/null || true
-    fi
+    ensure_preset
+    generate_initramfs
+    add_limine_entry
 }
 
 post_upgrade() {
-    post_install
+    ensure_preset
+    generate_initramfs
+    add_limine_entry
 }
 
 pre_remove() {
-    rm -f /etc/mkinitcpio.d/linux-flatten.preset
+    remove_limine_entry
 }
 
 post_remove() {
     :
+}
+
+# ─── mkinitcpio preset ─────────────────────────────────────
+ensure_preset() {
+    local preset_file="/etc/mkinitcpio.d/linux-flatten.preset"
+
+    if [ -f "$preset_file" ]; then
+        echo "mkinitcpio preset already exists at $preset_file"
+        return 0
+    fi
+
+    echo "Creating mkinitcpio preset at $preset_file..."
+    mkdir -p /etc/mkinitcpio.d
+    cat > "$preset_file" <<EOF
+ALL_kver="/boot/vmlinuz-linux-flatten"
+ALL_config="/etc/mkinitcpio.conf"
+default_image="/boot/initramfs-linux-flatten.img"
+EOF
+    echo "mkinitcpio preset created successfully"
+}
+
+# ─── Initramfs generation ──────────────────────────────────
+generate_initramfs() {
+    ensure_preset
+
+    if mkinitcpio -p linux-flatten 2>/dev/null || mkinitcpio --preset linux-flatten; then
+        echo "Initramfs generated for linux-flatten"
+    else
+        echo "Warning: mkinitcpio failed for linux-flatten preset"
+        echo "Try manually: sudo mkinitcpio -p linux-flatten"
+    fi
+}
+
+# ─── Limine entry management ───────────────────────────────
+_KERNEL_CMDLINE_EXTRA="pcie_aspm=performance"
+
+add_limine_entry() {
+    local limine_cfg="/boot/limine/limine.conf"
+    local backup_cfg="${limine_cfg}.bak.linux-flatten.$(date +%s)"
+
+    if [ ! -f "$limine_cfg" ]; then
+        echo "Limine config not found at $limine_cfg. Skipping limine entry."
+        return 0
+    fi
+
+    local root_uuid
+    root_uuid=$(findmnt -n -o UUID / 2>/dev/null)
+    if [ -z "$root_uuid" ]; then
+        echo "Cannot determine root UUID. Limine entry will use default root."
+        root_uuid="YOUR_ROOT_UUID"
+    fi
+
+    local cmdline
+    cmdline=$(cat /proc/cmdline 2>/dev/null | sed 's/BOOT_IMAGE=[^ ]* //')
+
+    # Combine cmdline with our extras, avoiding duplicates
+    for extra in $_KERNEL_CMDLINE_EXTRA; do
+        if ! echo "$cmdline" | grep -q "$extra"; then
+            cmdline="$cmdline $extra"
+        fi
+    done
+
+    # If entry already exists, update it with new cmdline
+    if grep -q "^:Linux Flatten" "$limine_cfg" 2>/dev/null; then
+        echo "Linux Flatten entry exists in Limine config. Updating cmdline..."
+        cp "$limine_cfg" "$backup_cfg"
+        echo "Backed up to $backup_cfg"
+
+        # Update the KERNEL_CMDLINE line in the existing entry
+        awk -v new_cmdline="root=UUID=$root_uuid $cmdline add_efi_memmap" '
+        /^:Linux Flatten/ { found=1 }
+        found && /KERNEL_CMDLINE=/ {
+            print "    KERNEL_CMDLINE=\"" new_cmdline "\""
+            found=0
+            next
+        }
+        { print }
+        ' "$limine_cfg" > "${limine_cfg}.tmp" && mv "${limine_cfg}.tmp" "$limine_cfg"
+
+        echo "Linux Flatten entry updated with pcie_aspm=performance"
+        return 0
+    fi
+
+    # New entry — add to file
+    cp "$limine_cfg" "$backup_cfg"
+    echo "Backed up limine config to $backup_cfg"
+
+    cat >> "$limine_cfg" <<LIMINE
+
+# --- Added by linux-flatten package (automatically) ---
+:Linux Flatten
+    PROTOCOL=linux
+    KERNEL_PATH=boot:///vmlinuz-linux-flatten
+    MODULE_PATH=boot:///initramfs-linux-flatten.img
+    KERNEL_CMDLINE="root=UUID=$root_uuid $cmdline add_efi_memmap"
+# ------------------------------------------------------
+LIMINE
+    echo "Limine entry added. Reboot and select 'Linux Flatten' to boot."
+}
+
+remove_limine_entry() {
+    local limine_cfg="/boot/limine/limine.conf"
+
+    if [ ! -f "$limine_cfg" ]; then
+        return 0
+    fi
+
+    if ! grep -q "^# --- Added by linux-flatten package" "$limine_cfg" 2>/dev/null; then
+        echo "No linux-flatten entry found in limine config."
+        return 0
+    fi
+
+    local backup_cfg="${limine_cfg}.bak.linux-flatten.$(date +%s)"
+    cp "$limine_cfg" "$backup_cfg"
+    echo "Backed up limine config to $backup_cfg"
+
+    sed -i '/^# --- Added by linux-flatten package (automatically) ---/,/^# ------------------------------------------------------/d' "$limine_cfg"
+    echo "Removed linux-flatten entry from Limine config."
 }

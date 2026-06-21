@@ -44,6 +44,10 @@ _kernel_branch="sched/flat"
 _kernel_repo="https://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git"
 _srcname="linux-flatten"
 
+_is_ci_build() {
+    [[ -n "$CI" || -n "$GITHUB_RUN_ID" ]]
+}
+
 _die() { error "$@"; exit 1; }
 
 prepare() {
@@ -68,14 +72,11 @@ prepare() {
 
     echo "Setting config..."
 
-    # Enable ALL modules
-    make allmodconfig
-
     # ── CPU target: Xeon E31270 (Sandy Bridge) ──
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
     scripts/config -e MSANDYBRIDGE
-    msg "CPU: Xeon E31270 (Sandy Bridge, MSANDYBRIDGE)"
+    echo "CPU: Xeon E31270 (Sandy Bridge, MSANDYBRIDGE)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -144,7 +145,17 @@ prepare() {
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
     # Finalize
-    make olddefconfig
+    make prepare
+    yes "" | make config >/dev/null
+
+    # CI: use -Os instead of -O3, reduce debug info
+    if _is_ci_build; then
+        scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE_O3
+        scripts/config -e CC_OPTIMIZE_FOR_SIZE
+        scripts/config -d DEBUG_KERNEL
+        scripts/config -e DEBUG_INFO_REDUCED
+        echo "CI build: -Os, reduced debug info"
+    fi
 
     # Show version
     make -s kernelrelease > version

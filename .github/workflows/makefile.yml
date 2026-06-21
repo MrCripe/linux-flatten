@@ -1,4 +1,4 @@
-name: Build & Release Kernel (Xeon E31270)
+name: Build & Release Universal Kernel
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python pahole zstd linux-firmware ccache
+        pacman -S --noconfirm base-devel git bc kmod inetutils cpio openssl elfutils python pahole zstd ccache
 
     - name: Configure makepkg
       run: |
@@ -70,31 +70,63 @@ jobs:
         body: |
           ## linux-flatten ${{ steps.version.outputs.kernel_version }}
 
-          **Optimized for Intel Xeon E31270 (Sandy Bridge, 4c/8t)**
+          **Universal x86-64 kernel** — compatible with all x86-64 CPUs.
 
-          ### Optimizations
-          - **sched/flat** — flattened runqueue by Peter Zijlstra
-          - **MSANDYBRIDGE** — Sandy Bridge native optimizations
-          - **PREEMPT_LAZY** — minimal latency switching
-          - **O3** (local) / **Os** (CI) — compiler optimization
-          - **HZ=1000** — high timer frequency
-          - **BBR (v3/mainline)** — modern TCP congestion control
-          - **THP MADVISE** — safe huge pages
-          - **ZSTD modules** — fast module loading
-          - **NR_CPUS=8** — optimized for 4 cores / 8 threads
-          - **No debug info** — minimal size
+          ### Features
+          - **sched/flat** — flattened runqueue by Peter Zijlstra (from `git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git`, branch `sched/flat`)
+          - **GENERIC_CPU** — works on all x86-64 processors (Intel, AMD, no vendor lock-in)
+          - **PREEMPT_LAZY** — minimal latency task switching
+          - **HZ=1000** — high timer frequency for responsive desktop
+          - **TCP_CONG_BBR** — modern TCP congestion control
+          - **THP MADVISE** — safe transparent huge pages (not forced)
+          - **ZSTD module compression** — fast module loading
+          - **MAXSMP** — supports up to 8192 CPUs
+          - **No debug info** — minimal size, no Clang/LTO
 
-          ### Installation
+          ### Installation (Arch Linux)
+
+          Download the `.pkg.tar.zst` from Assets below, then:
+
           ```bash
           sudo pacman -U linux-flatten-*.pkg.tar.zst
           sudo mkinitcpio -p linux-flatten
           sudo reboot
           ```
 
+          ### Installation (other distros)
+
+          Extract and install manually:
+
+          ```bash
+          tar xf linux-flatten-*.pkg.tar.zst -C /
+          # Copy kernel and initramfs to your boot partition
+          cp /usr/lib/modules/*/vmlinuz /boot/vmlinuz-linux-flatten
+          mkinitcpio -p linux-flatten   # or dracut --regenerate-all
+          # Add boot entry for your bootloader
+          sudo reboot
+          ```
+
           ### Verify
+
           ```bash
           uname -r
+          # Should show: <version>-flatten
+
           cat /proc/version
+          # Should show "flatten" in version string
+
+          # Verify sched/flat is active
+          cat /sys/kernel/debug/sched/features
+          ```
+
+          ### Bootloaders
+
+          **Limine**: entry is added automatically on Arch Linux via install hook.
+
+          **systemd-boot / GRUB**: add entry manually:
+          ```
+          linux /vmlinuz-linux-flatten root=UUID=<your-root-uuid> rw
+          initrd /initramfs-linux-flatten.img
           ```
         files: |
           linux-flatten-*.pkg.tar.zst

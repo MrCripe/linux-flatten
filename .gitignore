@@ -39,3 +39,12 @@ kernelrelease.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Extra README (English duplicate)
+README.en.md
+
+# Internal scripts (not for users)
+sync-with-cachyos.sh
+build-local.sh
+.lint.sh
+linux-flatten.sh

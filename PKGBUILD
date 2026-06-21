@@ -76,6 +76,7 @@ prepare() {
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
     scripts/config -e GENERIC_CPU
+    scripts/config -e SCHED_FLATTEN
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -119,12 +120,12 @@ prepare() {
     scripts/config -d SECURITY_APPARMOR
 
     # ── Disable unnecessary features ──
-    scripts/config -d CONFIG_FTRACE
-    scripts/config -d CONFIG_KPROBES
-    scripts/config -d CONFIG_KGDB
-    scripts/config -d CONFIG_KEXEC
-    scripts/config -d CONFIG_CRASH_DUMP
-    scripts/config -d CONFIG_EFI_MIXED
+    scripts/config -d FTRACE
+    scripts/config -d KPROBES
+    scripts/config -d KGDB
+    scripts/config -d KEXEC
+    scripts/config -d CRASH_DUMP
+    scripts/config -d EFI_MIXED
     scripts/config -d SCHED_CLASS_EXT
 
     # ── Module signature: SHA256 ──
@@ -152,7 +153,7 @@ build() {
 }
 
 _package() {
-    pkgdesc="Linux kernel with sched/flat patch + desktop optimizations"
+    pkgdesc="Linux kernel with sched/flat patch — universal x86-64"
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE)
 
     cd "$_srcname"

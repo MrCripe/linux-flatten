@@ -50,7 +50,7 @@ generate_initramfs() {
 }
 
 # ─── Limine entry management ───────────────────────────────
-_KERNEL_CMDLINE_EXTRA="pcie_aspm=performance"
+_KERNEL_CMDLINE_EXTRA=""
 
 add_limine_entry() {
     local limine_cfg="/boot/limine/limine.conf"
@@ -95,7 +95,7 @@ add_limine_entry() {
         { print }
         ' "$limine_cfg" > "${limine_cfg}.tmp" && mv "${limine_cfg}.tmp" "$limine_cfg"
 
-        echo "Linux Flatten entry updated with pcie_aspm=performance"
+        echo "Linux Flatten entry updated"
         return 0
     fi
 

@@ -75,9 +75,7 @@ prepare() {
     # ── CPU target: generic x86-64 (works everywhere) ──
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4
-    scripts/config -e MSANDYBRIDGE
-    scripts/config --set-val CONFIG_NR_CPUS 8
-    scripts/config -d CONFIG_MAXSMP
+    scripts/config -e GENERIC_CPU
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE

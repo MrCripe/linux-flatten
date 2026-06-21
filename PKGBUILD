@@ -72,6 +72,10 @@ prepare() {
 
     echo "Setting config..."
 
+    # ── sched/flat — flattened runqueue (main purpose of this build) ──
+    scripts/config -e SCHED_FLATTEN
+    echo "sched/flat: enabled"
+
     # ── CPU target: Xeon E31270 (Sandy Bridge) ──
     scripts/config -d GENERIC_CPU
     scripts/config -d MZEN4

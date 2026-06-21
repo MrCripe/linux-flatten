@@ -76,11 +76,11 @@ prepare() {
     scripts/config -e SCHED_FLATTEN
     echo "sched/flat: enabled"
 
-    # ── CPU target: Xeon E31270 (Sandy Bridge) ──
-    scripts/config -d GENERIC_CPU
+    # ── CPU target: generic x86-64 (works on all CPUs) ──
+    scripts/config -d MSANDYBRIDGE
     scripts/config -d MZEN4
-    scripts/config -e MSANDYBRIDGE
-    echo "CPU: Xeon E31270 (Sandy Bridge, MSANDYBRIDGE)"
+    scripts/config -e GENERIC_CPU
+    echo "CPU: generic x86-64 (universal)"
 
     # ── Compiler: -O3 ──
     scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
@@ -146,11 +146,6 @@ prepare() {
     scripts/config -d GCC_PLUGINS
     scripts/config -d GCC_PLUGIN_LATENT_ENTROPY
 
-    # ── NR_CPUS: 8 (4 cores / 8 threads on Xeon E31270) ──
-    scripts/config --set-val CONFIG_NR_CPUS 8
-    scripts/config -d CONFIG_MAXSMP
-    echo "NR_CPUS: 8, MAXSMP: off"
-
     # ── Local version ──
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
 
@@ -190,7 +185,7 @@ build() {
 }
 
 _package() {
-    pkgdesc="Linux kernel with sched/flat patch + desktop optimizations"
+    pkgdesc="Linux kernel with Peter Zijlstra's sched/flat flattened runqueue scheduler"
     provides=(VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE KSMBD-MODULE V4L2LOOPBACK-MODULE NTSYNC-MODULE VHBA-MODULE)
 
     cd "$_srcname"

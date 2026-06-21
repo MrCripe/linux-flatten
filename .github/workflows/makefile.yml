@@ -1,8 +1,8 @@
-name: Build & Release Kernel (Xeon E31270)
+name: Build & Release Kernel
 
 on:
   push:
-    branches: [ "main", "xeon-e31270" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -62,7 +62,7 @@ jobs:
         ls -lh linux-flatten-*.pkg.tar.zst 2>/dev/null
 
     - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/xeon-e31270'
+      if: github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.kernel_version }}
@@ -70,18 +70,17 @@ jobs:
         body: |
           ## linux-flatten ${{ steps.version.outputs.kernel_version }}
 
-          **Optimized for Intel Xeon E31270 (Sandy Bridge, 4c/8t)**
+          **Universal x86_64 kernel** — works on any x86-64 CPU (Intel Core 2+, AMD Athlon 64+).
 
           ### Optimizations
           - **sched/flat** — flattened runqueue by Peter Zijlstra
-          - **MSANDYBRIDGE** — Sandy Bridge native optimizations
+          - **GENERIC_CPU** — universal x86-64 optimizations
           - **PREEMPT_LAZY** — minimal latency switching
           - **O3** (local) / **Os** (CI) — compiler optimization
           - **HZ=1000** — high timer frequency
           - **BBR (v3/mainline)** — modern TCP congestion control
           - **THP MADVISE** — safe huge pages
           - **ZSTD modules** — fast module loading
-          - **NR_CPUS=8** — optimized for 4 cores / 8 threads
           - **No debug info** — minimal size
 
           ### Installation

@@ -26,6 +26,7 @@ jobs:
         sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j$(nproc) -l$(nproc)"/g' /etc/makepkg.conf
         sed -i 's|!ccache|ccache|' /etc/makepkg.conf
         mkdir -p /home/builder/.ccache
+        chown -R builder:builder /home/builder/.ccache
 
     - uses: actions/checkout@v4
       with:

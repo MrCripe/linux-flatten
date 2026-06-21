@@ -130,6 +130,13 @@ prepare() {
     scripts/config -d KEXEC
     scripts/config -d CRASH_DUMP
     scripts/config -d EFI_MIXED
+    scripts/config -d SCHED_CLASS_EXT
+    scripts/config -d LTO
+    scripts/config -d LTO_CLANG
+    scripts/config -d DEBUG_KERNEL
+    scripts/config -d KFENCE
+    scripts/config -d SLUB_DEBUG
+    scripts/config -d BUG_ON_DATA_CORRUPTION
 
     # ── Module signature: SHA256 ──
     scripts/config -d MODULE_SIG_SHA512

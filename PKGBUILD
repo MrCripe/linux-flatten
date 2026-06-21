@@ -58,8 +58,8 @@ prepare() {
 
     cd "$_srcname"
 
-    # Generate basic config first so make kernelrelease works
-    make defconfig 2>/dev/null
+    # Use CachyOS config as base
+    cp ../config .config
 
     # Detect version from kernel source
     local kver
@@ -126,7 +126,6 @@ prepare() {
     scripts/config -d KEXEC
     scripts/config -d CRASH_DUMP
     scripts/config -d EFI_MIXED
-    scripts/config -d SCHED_CLASS_EXT
 
     # ── Module signature: SHA256 ──
     scripts/config -d MODULE_SIG_SHA512
@@ -139,10 +138,22 @@ prepare() {
     # ── NR_CPUS: 8 (4 cores / 8 threads on Xeon E31270) ──
     scripts/config --set-val CONFIG_NR_CPUS 8
     scripts/config -d CONFIG_MAXSMP
-    msg "NR_CPUS: 8, MAXSMP: off"
+    echo "NR_CPUS: 8, MAXSMP: off"
 
     # ── Local version ──
     scripts/config --set-str CONFIG_LOCALVERSION "-flatten"
+
+    # ── Disable CachyOS-specific options not in peterz/queue ──
+    scripts/config -d SCHED_BORE
+    scripts/config -d SCHED_ALT
+    scripts/config -d SCHED_BMQ
+    scripts/config -d CACHY
+    scripts/config -d SCHED_CLASS_EXT
+    scripts/config -d LTO_CLANG_THIN
+    scripts/config -d LTO_CLANG_FULL
+    scripts/config -e LTO_NONE
+    scripts/config -d AUTOFDO_CLANG
+    scripts/config -d PROPELLER_CLANG
 
     # Finalize
     make prepare
@@ -276,5 +287,5 @@ for _p in "${pkgname[@]}"; do
     }"
 done
 
-source=()
-sha256sums=()
+source=("config")
+sha256sums=("SKIP")

@@ -44,18 +44,16 @@ jobs:
     - name: Build kernel via makepkg
       run: |
         set -e
-        # makepkg refuses to run as root — create a builder user
         useradd -m builder
+        mkdir -p /home/builder/.ccache
+        chown -R builder:builder /home/builder/.ccache
         chown -R builder:builder "$GITHUB_WORKSPACE"
 
-        # Allow builder to run pacman without password
         echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
         chmod 0440 /etc/sudoers.d/builder
 
-        # Clone + build as non-root user with ccache
         su - builder -s /bin/bash -c "cd '$GITHUB_WORKSPACE' && \
-          export CCACHE_DIR=/home/builder/.ccache && \
-          makepkg -sf --noconfirm"
+          CCACHE_DIR=/home/builder/.ccache makepkg -sf --noconfirm"
 
     - name: Get kernel version
       id: version
